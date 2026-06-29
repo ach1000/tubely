@@ -41,8 +41,8 @@ No goose, no SQLC — this project uses raw `database/sql` with `github.com/matt
 ## Incomplete/Stub Code
 This is starter code with course exercises left for the student — do not "fix" these without checking with the user first, they may be intentionally unfinished lesson placeholders:
 - `handler_upload_video.go`: `handlerUploadVideo` is a literally empty function body — registered at `POST /api/video_upload/{videoID}` but does nothing (router still returns `200` with an empty response).
-- `handler_upload_thumbnail.go`: `handlerUploadThumbnail` validates the video ID and JWT, logs a line, then has a `// TODO: implement the upload here` comment and returns `200` with an empty JSON object — it never reads the multipart body or stores anything.
-- `handler_get_thumbnail.go`: `handlerThumbnailGet` reads from `videoThumbnails` (`main.go`, a package-level `map[uuid.UUID]thumbnail` with `data []byte`/`mediaType string`) — this in-memory store is never written to since upload isn't implemented, and it isn't persisted/shared across server restarts or instances.
+- `handler_upload_thumbnail.go`: `handlerUploadThumbnail` is now implemented — parses the multipart form (10MB max memory), reads the `thumbnail` form file, checks the authenticated user owns the video (`401` if not), stores the bytes/media type in `videoThumbnails`, sets `thumbnail_url` to `http://localhost:<port>/api/thumbnails/{videoID}` via `cfg.db.UpdateVideo`, and responds with the updated `database.Video`. Still in-memory only (see below).
+- `handler_get_thumbnail.go`: `handlerThumbnailGet` reads from `videoThumbnails` (`main.go`, a package-level `map[uuid.UUID]thumbnail` with `data []byte`/`mediaType string`) — this in-memory store isn't persisted/shared across server restarts or instances (expected to move to S3 later in the course).
 - `s3Bucket`/`s3Region`/`s3CfDistribution` are read from env and stored on `apiConfig` but nothing in the code currently calls AWS S3/CloudFront — wiring is expected to land as the course progresses.
 
 ## Building and Running
