@@ -12,8 +12,7 @@ Starter code for the boot.dev course "Learn File Servers and CDNs with S3 and Cl
 - `POST /api/login`, `POST /api/refresh`, `POST /api/revoke`: auth (see below)
 - `POST /api/users`: create a user
 - `POST /api/videos`, `GET /api/videos`, `GET /api/videos/{videoID}`, `DELETE /api/videos/{videoID}`: video metadata CRUD, JWT-protected except `GET /api/videos/{videoID}`
-- `POST /api/thumbnail_upload/{videoID}`: JWT-protected stub, see Incomplete/Stub Code
-- `GET /api/thumbnails/{videoID}`: serves a thumbnail from the in-memory `videoThumbnails` map
+- `POST /api/thumbnail_upload/{videoID}`: JWT-protected, see Incomplete/Stub Code
 - `POST /api/video_upload/{videoID}`: empty stub, see Incomplete/Stub Code
 - `POST /admin/reset`: wipes all DB tables, restricted to `PLATFORM=dev` (`403` otherwise)
 
@@ -27,7 +26,7 @@ No goose, no SQLC — this project uses raw `database/sql` with `github.com/matt
 - `videos.video_url TEXT TEXT` (note the doubled type token in `database.go`) — harmless in SQLite (column affinity, not a real type), but worth fixing if anyone touches that schema.
 - `users`: `id` (TEXT/UUID PK), `created_at`, `updated_at`, `password`, `email` (unique).
 - `refresh_tokens`: `token` (PK), `created_at`, `updated_at`, `revoked_at` (nullable), `user_id`, `expires_at`.
-- `videos`: `id`, `created_at`, `updated_at`, `title`, `description`, `thumbnail_url`, `video_url`, `user_id` — `thumbnail_url`/`video_url` columns exist but nothing currently writes to them (thumbnails live in the in-memory map instead; video upload is a no-op stub).
+- `videos`: `id`, `created_at`, `updated_at`, `title`, `description`, `thumbnail_url`, `video_url`, `user_id` — `thumbnail_url` is now a `data:<media-type>;base64,<data>` URL written directly to the column by the thumbnail upload handler; `video_url` is unwritten (video upload is a no-op stub).
 - `Client.Reset()` deletes all rows from `refresh_tokens`, `users`, `videos` in that order (FK-safe), used by `POST /admin/reset`.
 - Queries (`users.go`, `videos.go`, `refresh_tokens.go`) are plain `?`-placeholder SQL strings, one Go method per query — no generated code.
 
@@ -41,8 +40,7 @@ No goose, no SQLC — this project uses raw `database/sql` with `github.com/matt
 ## Incomplete/Stub Code
 This is starter code with course exercises left for the student — do not "fix" these without checking with the user first, they may be intentionally unfinished lesson placeholders:
 - `handler_upload_video.go`: `handlerUploadVideo` is a literally empty function body — registered at `POST /api/video_upload/{videoID}` but does nothing (router still returns `200` with an empty response).
-- `handler_upload_thumbnail.go`: `handlerUploadThumbnail` is now implemented — parses the multipart form (10MB max memory), reads the `thumbnail` form file, checks the authenticated user owns the video (`401` if not), stores the bytes/media type in `videoThumbnails`, sets `thumbnail_url` to `http://localhost:<port>/api/thumbnails/{videoID}` via `cfg.db.UpdateVideo`, and responds with the updated `database.Video`. Still in-memory only (see below).
-- `handler_get_thumbnail.go`: `handlerThumbnailGet` reads from `videoThumbnails` (`main.go`, a package-level `map[uuid.UUID]thumbnail` with `data []byte`/`mediaType string`) — this in-memory store isn't persisted/shared across server restarts or instances (expected to move to S3 later in the course).
+- `handler_upload_thumbnail.go`: `handlerUploadThumbnail` is implemented — parses the multipart form (10MB max memory), reads the `thumbnail` form file, checks the authenticated user owns the video (`401` if not), base64-encodes the bytes (`encoding/base64`) into a `data:<media-type>;base64,<data>` URL, sets `thumbnail_url` via `cfg.db.UpdateVideo`, and responds with the updated `database.Video`. No separate GET route is needed since the data URL is served directly by the browser; expected to move to S3 later in the course.
 - `s3Bucket`/`s3Region`/`s3CfDistribution` are read from env and stored on `apiConfig` but nothing in the code currently calls AWS S3/CloudFront — wiring is expected to land as the course progresses.
 
 ## Building and Running
@@ -78,8 +76,7 @@ tubely/
 ├── handler_login.go           # POST /api/login
 ├── handler_refresh.go         # POST /api/refresh, POST /api/revoke
 ├── handler_video_meta.go      # /api/videos CRUD
-├── handler_upload_thumbnail.go # POST /api/thumbnail_upload/{videoID} (stub, see Incomplete/Stub Code)
-├── handler_get_thumbnail.go   # GET /api/thumbnails/{videoID}
+├── handler_upload_thumbnail.go # POST /api/thumbnail_upload/{videoID}
 ├── handler_upload_video.go    # POST /api/video_upload/{videoID} (stub, see Incomplete/Stub Code)
 ├── samplesdownload.sh         # Downloads sample images/videos into samples/ (gitignored)
 ├── .env.example               # Template for .env (gitignored)
