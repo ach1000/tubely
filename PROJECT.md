@@ -8,7 +8,7 @@ Starter code for the boot.dev course "Learn File Servers and CDNs with S3 and Cl
 ## Architecture
 `main.go` builds an `http.ServeMux` directly in `main()` (no separate `makeHandler()`/test harness exists yet) and registers:
 - `/app/`: static fileserver rooted at `FILEPATH_ROOT` (the `app/` dir: `index.html`, `app.js`, `styles.css`)
-- `/assets/`: static fileserver rooted at `ASSETS_ROOT` (`assets/`, gitignored), wrapped in `cacheMiddleware` (`cache.go`) which sets `Cache-Control: max-age=3600`
+- `/assets/`: static fileserver rooted at `ASSETS_ROOT` (`assets/`, gitignored), wrapped in `noCacheMiddleware` (`cache.go`) which sets `Cache-Control: no-store` (thumbnail URLs are stable per video, so the browser must always revalidate to see a freshly uploaded thumbnail)
 - `POST /api/login`, `POST /api/refresh`, `POST /api/revoke`: auth (see below)
 - `POST /api/users`: create a user
 - `POST /api/videos`, `GET /api/videos`, `GET /api/videos/{videoID}`, `DELETE /api/videos/{videoID}`: video metadata CRUD, JWT-protected except `GET /api/videos/{videoID}`
@@ -69,7 +69,7 @@ tubely/
 │   └── database/              # SQLite client: raw SQL queries, auto-migrate DDL, Reset()
 ├── main.go                    # apiConfig, route registration, server startup
 ├── assets.go                  # ensureAssetsDir
-├── cache.go                   # cacheMiddleware (Cache-Control on /assets/)
+├── cache.go                   # noCacheMiddleware (Cache-Control: no-store on /assets/)
 ├── json.go                    # respondWithJSON / respondWithError
 ├── reset.go                   # POST /admin/reset handler
 ├── handler_users.go           # POST /api/users
