@@ -52,6 +52,11 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	if mediaType != "image/jpeg" && mediaType != "image/png" {
+		respondWithError(w, http.StatusBadRequest, "Thumbnail must be a JPEG or PNG image", nil)
+		return
+	}
+
 	exts, err := mime.ExtensionsByType(mediaType)
 	if err != nil || len(exts) == 0 {
 		respondWithError(w, http.StatusBadRequest, "Couldn't determine file extension", err)
