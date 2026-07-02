@@ -39,7 +39,7 @@ No goose, no SQLC — this project uses raw `database/sql` with `github.com/matt
 
 ## Incomplete/Stub Code
 This is starter code with course exercises left for the student — do not "fix" these without checking with the user first, they may be intentionally unfinished lesson placeholders:
-- `handler_upload_video.go`: `handlerUploadVideo` is implemented — caps the request body at 1GB (`http.MaxBytesReader`), authenticates and checks video ownership (`401` if not owner), reads the `video` form file, rejects any Content-Type other than `video/mp4` (`400`), streams the upload to an `os.CreateTemp` file, seeks it back to the start, uploads it to S3 (`s3Client.PutObject`) under a random 32-byte-hex key (`<hex>.mp4`), and sets `video_url` to `https://<bucket>.s3.<region>.amazonaws.com/<key>` via `cfg.db.UpdateVideo`. The video itself is never written under `assetsRoot`.
+- `handler_upload_video.go`: `handlerUploadVideo` is implemented — caps the request body at 1GB (`http.MaxBytesReader`), authenticates and checks video ownership (`401` if not owner), reads the `video` form file, rejects any Content-Type other than `video/mp4` (`400`), streams the upload to an `os.CreateTemp` file, seeks it back to the start, runs `getVideoAspectRatio` (`video.go`, shells out to `ffprobe -show_streams` and compares `width`/`height` against 16:9 and 9:16 within a tolerance) to pick a `landscape`/`portrait`/`other` prefix, uploads it to S3 (`s3Client.PutObject`) under key `<prefix>/<hex>.mp4` (random 32-byte-hex name), and sets `video_url` to `https://<bucket>.s3.<region>.amazonaws.com/<key>` via `cfg.db.UpdateVideo`. The video itself is never written under `assetsRoot`.
 - `handler_upload_thumbnail.go`: `handlerUploadThumbnail` is implemented — parses the multipart form (10MB max memory), reads the `thumbnail` form file, checks the authenticated user owns the video (`401` if not), rejects any media type other than `image/jpeg`/`image/png` (`400`), determines the file extension from the `Content-Type` header (`mime.ParseMediaType`/`mime.ExtensionsByType`), generates a random filename (32 bytes from `crypto/rand`, base64url-encoded via `base64.RawURLEncoding`) so each upload gets a fresh, never-cached URL, and writes the bytes to `<assetsRoot>/<randomName>.<ext>` on disk (`os.Create` + `io.Copy`). Sets `thumbnail_url` to `http://localhost:<port>/assets/<randomName>.<ext>` (served by the existing `/assets/` static file server) via `cfg.db.UpdateVideo`, and responds with the updated `database.Video`. Still local-disk only; not yet moved to S3.
 - `s3CfDistribution` is read from env and stored on `apiConfig` but nothing in the code currently calls CloudFront — video URLs point directly at the S3 bucket for now; CDN wiring is expected to land as the course progresses.
 
@@ -50,7 +50,7 @@ cp .env.example .env       # then fill in real values per course instructions
 ./samplesdownload.sh        # downloads sample images/videos into samples/
 go run .
 ```
-- Requires `ffmpeg`/`ffprobe` on `PATH` (not yet used by any handler, but required per `README.md`/course).
+- Requires `ffmpeg`/`ffprobe` on `PATH` (`ffprobe` is used by `getVideoAspectRatio` in `video.go`).
 - `sqlite3` CLI is optional, only for manually inspecting `tubely.db`.
 - AWS CLI + `~/.aws/credentials` (via `aws configure`) needed once S3 features are implemented; not required to run the server today.
 - On startup: creates `tubely.db` (gitignored) and `ASSETS_ROOT` (`assets/`, gitignored) if missing (`cfg.ensureAssetsDir()`, `assets.go`).
@@ -78,6 +78,8 @@ tubely/
 ├── handler_video_meta.go      # /api/videos CRUD
 ├── handler_upload_thumbnail.go # POST /api/thumbnail_upload/{videoID}
 ├── handler_upload_video.go    # POST /api/video_upload/{videoID} (stub, see Incomplete/Stub Code)
+├── video.go                   # getVideoAspectRatio (shells out to ffprobe)
+├── video_test.go               # getVideoAspectRatio tests against samples/
 ├── samplesdownload.sh         # Downloads sample images/videos into samples/ (gitignored)
 ├── .env.example               # Template for .env (gitignored)
 ├── tubely.db                  # SQLite DB file (gitignored, created at startup)
